@@ -606,7 +606,7 @@ footer{background:#1a1a18;color:rgba(255,255,255,.45);padding:0 5%;font-size:.82
           <div style="font-family:var(--fh);font-size:1.4rem;font-weight:800;color:#fff;margin-bottom:.5rem;">True<span style="color:var(--amber-light);">Rank</span></div>
           <p style="color:rgba(255,255,255,.5);font-size:.82rem;line-height:1.6;max-width:260px;">Every Match Counts. Every Player Recognized. India's platform for amateur sports.</p>
           <div style="margin-top:1rem;display:flex;gap:.75rem;">
-            <a href="mailto:support@truerank.co.in" style="color:rgba(255,255,255,.4);font-size:.78rem;text-decoration:none;">✉ support@truerank.co.in</a>
+            <a href="mailto:truerankqueries@gmail.com" style="color:rgba(255,255,255,.4);font-size:.78rem;text-decoration:none;">✉ truerankqueries@gmail.com</a>
           </div>
         </div>
         <div>
@@ -628,7 +628,7 @@ footer{background:#1a1a18;color:rgba(255,255,255,.45);padding:0 5%;font-size:.82
         <div>
           <div style="font-size:.75rem;font-weight:700;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.75rem;">Support</div>
           <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.5rem;">
-            <li><a href="mailto:support@truerank.co.in" style="color:rgba(255,255,255,.5);font-size:.82rem;text-decoration:none;">Contact Us</a></li>
+            <li><a href="mailto:truerankqueries@gmail.com" style="color:rgba(255,255,255,.5);font-size:.82rem;text-decoration:none;">Contact Us</a></li>
             <li><a onclick="showPage('terms-of-service')" style="color:rgba(255,255,255,.5);font-size:.82rem;cursor:pointer;text-decoration:none;">Community Guidelines</a></li>
           </ul>
         </div>
@@ -683,7 +683,7 @@ footer{background:#1a1a18;color:rgba(255,255,255,.45);padding:0 5%;font-size:.82
         <p>We retain information as long as necessary to provide our services, maintain rankings and records, comply with legal obligations, resolve disputes, and enforce policies.</p>
 
         <h3 style="font-family:var(--fh);font-size:1.1rem;margin:1.5rem 0 .5rem;">9. Your Rights</h3>
-        <p>You may have the right to access, correct, or request deletion of your information. Requests may be submitted to <a href="mailto:support@truerank.co.in" style="color:var(--teal);">support@truerank.co.in</a>.</p>
+        <p>You may have the right to access, correct, or request deletion of your information. Requests may be submitted to <a href="mailto:truerankqueries@gmail.com" style="color:var(--teal);">truerankqueries@gmail.com</a>.</p>
 
         <h3 style="font-family:var(--fh);font-size:1.1rem;margin:1.5rem 0 .5rem;">10. Prohibited Activities</h3>
         <p>Users may not upload false match results, impersonate another person, submit fraudulent certificates, manipulate rankings, abuse other users, or attempt unauthorized access. Violation may result in account suspension or termination.</p>
@@ -695,7 +695,7 @@ footer{background:#1a1a18;color:rgba(255,255,255,.45);padding:0 5%;font-size:.82
         <p>TrueRank is provided on an "as is" and "as available" basis. To the maximum extent permitted by law, TrueRank and its operators shall not be liable for any indirect, incidental, or consequential damages arising from the use of the platform.</p>
 
         <h3 style="font-family:var(--fh);font-size:1.1rem;margin:1.5rem 0 .5rem;">13. Contact Us</h3>
-        <p>For privacy-related questions: <a href="mailto:support@truerank.co.in" style="color:var(--teal);">support@truerank.co.in</a></p>
+        <p>For privacy-related questions: <a href="mailto:truerankqueries@gmail.com" style="color:var(--teal);">truerankqueries@gmail.com</a></p>
       </div>
     </div>
   </div>
@@ -755,7 +755,7 @@ footer{background:#1a1a18;color:rgba(255,255,255,.45);padding:0 5%;font-size:.82
         <p>We may update these Terms from time to time. Continued use of TrueRank after updates constitutes acceptance of the revised terms.</p>
 
         <h3 style="font-family:var(--fh);font-size:1.1rem;margin:1.5rem 0 .5rem;">12. Contact</h3>
-        <p>Questions about these Terms: <a href="mailto:support@truerank.co.in" style="color:var(--teal);">support@truerank.co.in</a></p>
+        <p>Questions about these Terms: <a href="mailto:truerankqueries@gmail.com" style="color:var(--teal);">truerankqueries@gmail.com</a></p>
       </div>
     </div>
   </div>
@@ -787,7 +787,7 @@ footer{background:#1a1a18;color:rgba(255,255,255,.45);padding:0 5%;font-size:.82
         <p>You can control cookies through your browser settings. Disabling essential cookies may prevent you from using certain features of TrueRank.</p>
 
         <h3 style="font-family:var(--fh);font-size:1.1rem;margin:1.5rem 0 .5rem;">5. Contact</h3>
-        <p>Cookie-related questions: <a href="mailto:support@truerank.co.in" style="color:var(--teal);">support@truerank.co.in</a></p>
+        <p>Cookie-related questions: <a href="mailto:truerankqueries@gmail.com" style="color:var(--teal);">truerankqueries@gmail.com</a></p>
       </div>
     </div>
   </div>
@@ -1137,7 +1137,7 @@ footer{background:#1a1a18;color:rgba(255,255,255,.45);padding:0 5%;font-size:.82
           </div>
           <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem;">
             <button class="btn btn-ghost btn-sm" onclick="exportTournamentCSV()">📤 Export CSV</button>
-            <button class="btn btn-ghost btn-sm" id="otd-pub-btn" onclick="">🔗 Public Link</button>
+            <button class="btn btn-ghost btn-sm" id="otd-pub-btn" onclick="copyOrgPublicLink()">🔗 Public Link</button>
           </div>
         </div>
 
@@ -2667,8 +2667,9 @@ async function viewOrgTournament(id, name) {
 
   // Public link button
   const pubBtn = document.getElementById('otd-pub-btn');
-  if (pubBtn && t.public_id) {
-    pubBtn.onclick = () => { navigator.clipboard?.writeText('https://truerank.co.in/?public='+t.public_id); alert('✅ Public link copied!'); };
+  if (pubBtn) {
+    pubBtn.dataset.publicId = t.public_id || '';
+    pubBtn.dataset.tournName = t.name || '';
   }
 
   // TAB 1 — Participants
@@ -4423,15 +4424,23 @@ function openResultModal() {
 
 // ── Result entry ──
 async function openResultEntry(matchId, p1, p2) {
-  document.getElementById('rm-match-id').value = matchId;
-  document.getElementById('rm-sub').textContent = p1 + ' vs ' + p2;
-  document.getElementById('rm-opt1').textContent = p1 + ' Won';
-  document.getElementById('rm-opt2').textContent = p2 + ' Won';
-  document.getElementById('rm-result').value = '';
-  document.getElementById('rm-score').value = '';
-  document.getElementById('rm-summary').value = '';
-  document.getElementById('rm-err').style.display = 'none';
-  // show result modal if exists, else use add-match modal
+  if (!matchId) { alert('Match ID missing.'); return; }
+  // If p1/p2 not passed, fetch from DB
+  if (!p1 || !p2) {
+    const { data: m } = await sb.from('matches').select('player1_name,player2_name').eq('id', matchId).single();
+    if (m) { p1 = m.player1_name; p2 = m.player2_name; }
+  }
+  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+  const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  setEl('rm-match-id', matchId);
+  setTxt('rm-sub', (p1||'Player 1') + ' vs ' + (p2||'Player 2'));
+  setTxt('rm-opt1', (p1||'Player 1') + ' Won');
+  setTxt('rm-opt2', (p2||'Player 2') + ' Won');
+  setEl('rm-result', '');
+  setEl('rm-score', '');
+  setEl('rm-summary', '');
+  const errEl = document.getElementById('rm-err');
+  if (errEl) errEl.style.display = 'none';
   const rm = document.getElementById('result-modal');
   if (rm) rm.classList.add('open');
 }
@@ -4481,6 +4490,17 @@ async function submitResult() {
 async function deleteAnnouncement(id) {
   await sb.from('announcements').delete().eq('id', id);
   viewOrgTournament(currentTournId, document.getElementById('otd-name').textContent);
+}
+
+function copyOrgPublicLink() {
+  const btn = document.getElementById('otd-pub-btn');
+  const publicId = btn?.dataset.publicId;
+  const url = publicId
+    ? `https://truerank.co.in/?public=${publicId}`
+    : `https://truerank.co.in/?public=${currentTournId}`;
+  navigator.clipboard?.writeText(url)
+    .then(() => alert('✅ Public link copied!\n\n' + url))
+    .catch(() => alert('Your public link:\n\n' + url));
 }
 
 let allOrgRegs = [];
@@ -4638,7 +4658,7 @@ async function openTournDetail(id) {
 
     <!-- Tabs -->
     <div style="display:flex;gap:.35rem;border-bottom:2px solid var(--gray-pale);margin-bottom:1.25rem;overflow-x:auto;">
-      ${(t?.format==='knockout'?['Info','Matches','Bracket','Standings','Progress']:['Info','Matches','Standings','Progress']).map((tab,i) => `<button onclick="switchTDTab(${i})" id="tdt-${i}" style="padding:.55rem 1rem;border:none;background:none;font-weight:600;font-size:.83rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid ${i===0?'var(--teal)':'transparent'};color:${i===0?'var(--teal)':'var(--gray-mid)'};">${tab}</button>`).join('')}
+      ${['Info','Matches','Bracket','Standings','Progress'].map((tab,i) => `<button onclick="switchTDTab(${i})" id="tdt-${i}" style="padding:.55rem 1rem;border:none;background:none;font-weight:600;font-size:.83rem;cursor:pointer;white-space:nowrap;border-bottom:2px solid ${i===0?'var(--teal)':'transparent'};color:${i===0?'var(--teal)':'var(--gray-mid)'};">${tab}</button>`).join('')}
     </div>
 
     <!-- Info Tab -->
@@ -4683,8 +4703,27 @@ async function openTournDetail(id) {
         </div>`).join('') : '<div class="empty-state"><div class="eico">⚔️</div><p>No matches scheduled yet.</p></div>'}
     </div>
 
-    <!-- Standings Tab -->
+    <!-- Bracket Tab -->
     <div id="tdt-c2" style="display:none;">
+      ${(() => {
+        const fmt = t?.format || 'swiss';
+        if (fmt === 'single_elimination') {
+          return renderSEBracket(allMatches||[], regs||[], false);
+        } else if (fmt === 'double_elimination') {
+          return renderDEBracket(allMatches||[], regs||[], false);
+        } else if (fmt === 'group_stage') {
+          return `<div class="dash-card"><h3>👥 Group Stage</h3><div style="margin-top:.75rem;">${renderGSStandings(allMatches||[], regs||[])}</div></div>`;
+        } else if (fmt === 'swiss') {
+          const sw = computeSwissStandings(allMatches||[], regs||[]);
+          if (!sw.length) return '<div class="empty-state"><div class="eico">🔄</div><p>Swiss pairings will appear once rounds start.</p></div>';
+          return `<div class="dash-card"><h3>🔄 Swiss Standings</h3><div style="overflow-x:auto;margin-top:.75rem;"><table class="data-table swiss-leaderboard"><thead><tr><th>Rank</th><th style="text-align:left;">Player</th><th>W</th><th>L</th><th>Score</th></tr></thead><tbody>${sw.map((s,i)=>`<tr style="${s.name===currentUser?.full_name?'background:var(--teal-pale);font-weight:700;':''}"><td><strong>${i+1}</strong></td><td>${esc(s.name)}</td><td>${s.wins}</td><td>${s.losses}</td><td>${s.score}</td></tr>`).join('')}</tbody></table></div></div>`;
+        }
+        return '<div class="empty-state"><div class="eico">🏆</div><p>Bracket view not available for this format.</p></div>';
+      })()}
+    </div>
+
+    <!-- Standings Tab -->
+    <div id="tdt-c3" style="display:none;">
       ${(() => {
         const fmt = t?.format || 'swiss';
         if (fmt === 'swiss') {
@@ -4716,7 +4755,7 @@ async function openTournDetail(id) {
     </div>
 
     <!-- Progress Tab -->
-    <div id="tdt-c3" style="display:none;">
+    <div id="tdt-c4" style="display:none;">
       <div style="padding:.5rem 0;">
         ${allRounds.length?allRounds.map(r => {
           const done = completedRounds.includes(r);
@@ -4733,21 +4772,6 @@ async function openTournDetail(id) {
         }).join(''):'<div class="empty-state"><div class="eico">📈</div><p>Progress will appear once rounds are created.</p></div>'}
       </div>
     </div>
-
-    ${t?.format==='knockout'?`
-    <!-- Bracket Tab -->
-    <div id="tdt-c2" style="display:none;">
-      ${renderBracket(allMatches||[], regs||[])}
-      ${standings.length&&t?.status==='completed'?`
-      <div style="background:var(--white);border-radius:16px;border:1px solid rgba(0,0,0,.08);padding:1.25rem;margin-top:1rem;">
-        <h3 style="text-align:center;margin-bottom:1.25rem;">🏆 Final Podium</h3>
-        <div class="podium">
-          ${standings[1]?`<div class="podium-place"><div class="podium-block silver">🥈</div><div class="podium-name">${standings[1].name}</div><div class="podium-rank">2nd · ${standings[1].wins}W</div></div>`:''}
-          ${standings[0]?`<div class="podium-place"><div class="podium-block gold">🥇</div><div class="podium-name">${standings[0].name}</div><div class="podium-rank">Champion · ${standings[0].wins}W</div></div>`:''}
-          ${standings[2]?`<div class="podium-place"><div class="podium-block bronze">🥉</div><div class="podium-name">${standings[2].name}</div><div class="podium-rank">3rd · ${standings[2].wins}W</div></div>`:''}
-        </div>
-      </div>`:''}
-    </div>`:''}
     `;
 }
 
