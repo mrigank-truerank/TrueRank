@@ -3845,7 +3845,86 @@ function renderMatchmakingTab(t, matches, regs) {
   else if (fmt === 'group_stage') content += renderGSMatchmakingPanel(matches, regs, t);
   else if (fmt === 'double_elimination') content += renderDEMatchmakingPanel(matches, regs, t);
 
+  // ── Pages: Round/Group browser (additive, undoable layer) ──
+  content += renderMMPagesNav(matches, fmt);
+
   el.innerHTML = content;
+}
+
+// ═══ PAGES NAVIGATOR — browse any round/group's matches by name ═══
+// Self-contained & additive: safe to remove without affecting the panels above.
+function getMMPageOrder(roundNames, fmt) {
+  // Order pages sensibly per format instead of relying on insertion order
+  if (fmt === 'group_stage') {
+    const groups = roundNames.filter(r => /^Group /i.test(r)).sort();
+    const playoffOrder = ['Quarterfinals','Semifinals','Final'];
+    const playoffs = playoffOrder.filter(p => roundNames.includes(p));
+    return [...groups, ...playoffs];
+  }
+  if (fmt === 'double_elimination') {
+    const wr = roundNames.filter(r => r.startsWith('WR')).sort((a,b)=>parseInt(a.slice(2))-parseInt(b.slice(2)));
+    const lr = roundNames.filter(r => r.startsWith('LR')).sort((a,b)=>parseInt(a.slice(2))-parseInt(b.slice(2)));
+    const others = roundNames.filter(r => !r.startsWith('WR') && !r.startsWith('LR'));
+    return [...wr, ...lr, ...others];
+  }
+  if (fmt === 'single_elimination') {
+    const seOrder = ['Round of 128','Round of 64','Round of 32','Round of 16','Quarterfinals','Semifinals','Final'];
+    return seOrder.filter(r => roundNames.includes(r));
+  }
+  // swiss: Round 1, Round 2, ... sorted numerically
+  return [...roundNames].sort((a,b) => {
+    const na = parseInt(a.replace(/\D/g,'')) || 0, nb = parseInt(b.replace(/\D/g,'')) || 0;
+    return na - nb;
+  });
+}
+
+function renderMMPagesNav(matches, fmt) {
+  const allRoundNames = [...new Set((matches||[]).map(m => m.round_name).filter(Boolean))];
+  if (!allRoundNames.length) return '';
+  const pages = getMMPageOrder(allRoundNames, fmt);
+  if (!pages.length) return '';
+
+  window._mmPagesMatches = matches || []; // cache for the switcher
+
+  return `
+  <div class="dash-card" style="margin-top:1.5rem;" id="mm-pages-card">
+    <h3>📑 Pages <span style="font-size:.72rem;color:var(--gray-mid);font-weight:500;">— jump to any round/group</span></h3>
+    <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin:.75rem 0 1rem;">
+      ${pages.map((p,i) => `<button class="swiss-round-tab ${i===0?'active':''}" id="mmp-tab-${i}" onclick="switchMMPage(${i},'${p.replace(/'/g,"\\'")}')">${esc(p)}</button>`).join('')}
+    </div>
+    <div id="mm-page-content">${renderMMPageContent(pages[0], matches)}</div>
+  </div>`;
+}
+
+function switchMMPage(idx, roundName) {
+  document.querySelectorAll('#mm-pages-card .swiss-round-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('mmp-tab-' + idx)?.classList.add('active');
+  const c = document.getElementById('mm-page-content');
+  if (c) c.innerHTML = renderMMPageContent(roundName, window._mmPagesMatches || []);
+}
+
+function renderMMPageContent(roundName, matches) {
+  const ms = (matches||[]).filter(m => m.round_name === roundName);
+  if (!ms.length) return `<div class="empty-state"><div class="eico">📭</div><p>No matches in ${esc(roundName)} yet.</p></div>`;
+  const doneCount = ms.filter(m=>m.status==='completed').length;
+  return `
+    <div style="font-size:.78rem;font-weight:700;color:var(--teal);margin-bottom:.65rem;">${esc(roundName)} · ${doneCount}/${ms.length} completed</div>
+    ${ms.map(m => {
+      const winner = m.result==='player1_win'?m.player1_name:m.result==='player2_win'?m.player2_name:m.result==='draw'?'Draw':null;
+      const meta = [m.match_date?formatDate(m.match_date):'', m.match_time||'', m.venue||'', m.court?'Court '+m.court:''].filter(Boolean).join(' · ');
+      return `<div class="swiss-match-card ${m.status==='completed'?'completed':''} ${m.player2_name==='BYE'?'bye':''}">
+        <div>
+          <div style="font-weight:700;font-size:.88rem;">${esc(m.player1_name||'?')} <span style="color:var(--gray-mid);font-weight:400;">vs</span> ${m.player2_name==='BYE'?'<span style="background:var(--amber);color:#fff;border-radius:6px;padding:1px 8px;font-size:.75rem;">BYE</span>':esc(m.player2_name||'?')}</div>
+          ${meta?`<div style="font-size:.72rem;color:var(--gray-mid);margin-top:2px;">${esc(meta)}</div>`:''}
+          ${winner?`<div style="font-size:.78rem;color:var(--teal);font-weight:600;margin-top:3px;">🏆 ${esc(winner)}${m.score?' · '+esc(m.score):''}</div>`:''}
+        </div>
+        <div style="display:flex;gap:.35rem;align-items:center;">
+          <span class="badge ${m.status==='completed'?'win':m.status==='ongoing'?'live':'upcoming'}">${m.status}</span>
+          ${m.status!=='completed'&&m.player2_name!=='BYE'?`<button class="btn btn-ghost btn-sm" onclick="openResultEntry('${m.id}','${(m.player1_name||'').replace(/'/g,"\\'")}','${(m.player2_name||'').replace(/'/g,"\\'")}')">Enter Result</button>`:''}
+        </div>
+      </div>`;
+    }).join('')}
+  `;
 }
 
 // ── Swiss matchmaking panel ──
@@ -4612,21 +4691,19 @@ async function saveBulkRound() {
     if (error) errors++; else saved++;
   }
 
-  // Notify ALL players in this tournament about the schedule update
+  // Notify only players who have a match in THIS round
   if (saved > 0) {
     const { data: regs } = await sb.from('registrations').select('player_id,player_name')
       .eq('tournament_id', currentTournId).eq('status','approved');
 
-    // Build per-player message: find their match in this round
+    // Build per-player message: only for players who have a match in this round
     const notifs = [];
     for (const reg of (regs||[]).filter(r=>r.player_id)) {
       const myMatch = _bulkMatches.find(m => m.p1===reg.player_name || m.p2===reg.player_name);
-      let msg = `📅 ${round} schedule updated`;
-      if (myMatch) {
-        const opp = myMatch.p1===reg.player_name ? myMatch.p2 : myMatch.p1;
-        const details = [myMatch.date?formatDate(myMatch.date):'', myMatch.time||'', myMatch.venue||'', myMatch.court?'Court '+myMatch.court:''].filter(Boolean).join(' · ');
-        msg = `📅 Your ${round} match vs ${opp}${details?' — '+details:''}`;
-      }
+      if (!myMatch) continue; // skip players not in this round at all
+      const opp = myMatch.p1===reg.player_name ? myMatch.p2 : myMatch.p1;
+      const details = [myMatch.date?formatDate(myMatch.date):'', myMatch.time||'', myMatch.venue||'', myMatch.court?'Court '+myMatch.court:''].filter(Boolean).join(' · ');
+      const msg = `📅 Your ${round} match vs ${opp||'TBD'}${details?' — '+details:''}`;
       notifs.push({ player_id: reg.player_id, tournament_id: currentTournId, message: msg, type: 'match_created' });
     }
     if (notifs.length) await sb.from('notifications').insert(notifs);
@@ -4772,11 +4849,12 @@ async function submitResult() {
   const { error } = await sb.from('matches').update({ result, score: score||null, match_summary: summary||null, status: 'completed' }).eq('id', matchId);
   btn.innerHTML = 'Save Result'; btn.disabled = false;
   if (error) { showErr(err, error.message); return; }
-  // notify players
+  // notify only the two players in this specific match
   const { data: m } = await sb.from('matches').select('player1_name,player2_name,tournament_id').eq('id', matchId).single();
   if (m) {
     const winner = result==='player1_win'?m.player1_name:result==='player2_win'?m.player2_name:'Draw';
-    const { data: regs } = await sb.from('registrations').select('player_id').eq('tournament_id', m.tournament_id);
+    const names = [m.player1_name, m.player2_name].filter(n => n && n !== 'BYE');
+    const { data: regs } = await sb.from('registrations').select('player_id,player_name').eq('tournament_id', m.tournament_id).in('player_name', names);
     const notifs = (regs||[]).filter(r=>r.player_id).map(r => ({
       player_id: r.player_id, tournament_id: m.tournament_id,
       message: `✅ Result: ${m.player1_name} vs ${m.player2_name} → ${result==='draw'?'Draw':'🏆 '+winner}${score?' ('+score+')':''}`,
@@ -5186,9 +5264,10 @@ async function submitMatch() {
   } else {
     const res = await sb.from('matches').insert(payload);
     error = res.error;
-    // send notifications to all registered players
+    // send notification only to the two players in this match
     if (!error) {
-      const { data: regs } = await sb.from('registrations').select('player_id').eq('tournament_id', currentTournId);
+      const names = [payload.player1_name, payload.player2_name].filter(n => n && n !== 'BYE' && n !== 'TBD');
+      const { data: regs } = await sb.from('registrations').select('player_id,player_name').eq('tournament_id', currentTournId).in('player_name', names);
       const notifs = (regs||[]).filter(r=>r.player_id).map(r => ({
         player_id: r.player_id,
         tournament_id: currentTournId,
@@ -5472,11 +5551,17 @@ async function loadPublicTournament(publicId) {
   const c = document.getElementById('pt-content');
   const { data: t } = await sb.from('public_tournaments').select('*').eq('public_id', publicId).single();
   if (!t) { c.innerHTML = '<div class="empty-state"><div class="eico">❌</div><p>Tournament not found.</p></div>'; return; }
-  const [{ data: matches }, { data: regs }, { data: anns }] = await Promise.all([
+  const [{ data: matches }, regsResult, { data: anns }] = await Promise.all([
     sb.from('matches').select('*').eq('tournament_id', t.id).order('round_number').order('created_at'),
-    sb.from('registrations').select('*').eq('tournament_id', t.id).eq('status','approved'),
+    sb.from('public_registrations').select('*').eq('tournament_id', t.id).eq('status','approved'),
     sb.from('announcements').select('*').eq('tournament_id', t.id).order('created_at', { ascending: false })
   ]);
+  // Fallback: if public_registrations view doesn't exist yet, try the regular table (works only if RLS allows it)
+  let regs = regsResult.data;
+  if (regsResult.error || !regs) {
+    const fallback = await sb.from('registrations').select('player_name,status').eq('tournament_id', t.id).eq('status','approved');
+    regs = fallback.data || [];
+  }
   // compute standings
   const standings = computeStandings(matches||[], regs||[]);
   // group matches by round
