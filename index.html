@@ -1544,8 +1544,8 @@ footer{background:#1a1a18;color:rgba(255,255,255,.45);padding:0 5%;font-size:.82
     </div>
     <div id="am-player-section">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-        <div class="form-group"><label>Player 1 *</label><select id="am-p1"><option value="">Select player</option></select></div>
-        <div class="form-group"><label>Player 2 *</label><select id="am-p2"><option value="">Select player</option></select></div>
+        <div class="form-group"><label>Player 1 *</label><select id="am-p1" onchange="checkAmConflict()"><option value="">Select player</option></select></div>
+        <div class="form-group"><label>Player 2 *</label><select id="am-p2" onchange="checkAmConflict()"><option value="">Select player</option></select></div>
       </div>
     </div>
     <div id="am-team-section" style="display:none;">
@@ -1555,13 +1555,14 @@ footer{background:#1a1a18;color:rgba(255,255,255,.45);padding:0 5%;font-size:.82
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-      <div class="form-group"><label>Match Date</label><input type="date" id="am-date"/></div>
-      <div class="form-group"><label>Match Time</label><input type="time" id="am-time"/></div>
+      <div class="form-group"><label>Match Date</label><input type="date" id="am-date" onchange="checkAmConflict()"/></div>
+      <div class="form-group"><label>Match Time</label><input type="time" id="am-time" onchange="checkAmConflict()"/></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
       <div class="form-group"><label>Venue</label><input type="text" id="am-venue" placeholder="e.g. Main Hall"/></div>
-      <div class="form-group"><label>Court / Table No.</label><input type="text" id="am-court" placeholder="e.g. Court 3"/></div>
+      <div class="form-group"><label>Court / Table No.</label><input type="text" id="am-court" placeholder="e.g. Court 3" onchange="checkAmConflict()"/></div>
     </div>
+    <div id="am-conflict-warning"></div>
     <div class="form-group"><label>Match Status</label>
       <select id="am-status" onchange="toggleResultSection()">
         <option value="pending">Pending</option>
@@ -4608,6 +4609,55 @@ async function generatePlayoffs(tournId) {
 // ── Bulk Round Manager state ──
 let _bulkRound = null;
 let _bulkMatches = [];
+let _bulkAllMatches = [];
+
+// ═══ SCHEDULE CONFLICT DETECTION ═══
+// Rule 1: same date+time+court used by more than one match (court double-booked)
+// Rule 2: same player appears in 2+ matches at the same date+time (player double-booked)
+// Checks against: other rows currently being edited (_bulkMatches) + all matches already saved in DB for this tournament
+function detectScheduleConflicts(rows, savedMatches, excludeMatchId) {
+  // rows: array of {p1,p2,date,time,court,_matchId?} - the ones currently being edited
+  // savedMatches: array of DB match rows for the whole tournament (player1_name, player2_name, match_date, match_time, court, id)
+  const conflicts = {}; // index/key -> { court: bool, player: bool, reason: string[] }
+
+  const allEntries = [];
+  rows.forEach((r, i) => {
+    if (!r.date || !r.time) return; // can't conflict without both set
+    allEntries.push({ key: 'row-'+i, date: r.date, time: r.time, court: (r.court||'').trim(), p1: r.p1, p2: r.p2, isRow: true, idx: i });
+  });
+  (savedMatches||[]).forEach(m => {
+    if (!m.match_date || !m.match_time) return;
+    if (m.id === excludeMatchId) return; // editing this exact match — don't compare against its own old self
+    // skip if this saved match is literally one of the rows we're already comparing (BRM editing existing matches)
+    if (rows.some(r => r.id === m.id)) return;
+    allEntries.push({ key: 'saved-'+m.id, date: m.match_date, time: m.match_time, court: (m.court||'').trim(), p1: m.player1_name, p2: m.player2_name, isRow: false });
+  });
+
+  // Compare every pair
+  for (let a = 0; a < allEntries.length; a++) {
+    for (let b = a+1; b < allEntries.length; b++) {
+      const e1 = allEntries[a], e2 = allEntries[b];
+      if (e1.date !== e2.date || e1.time !== e2.time) continue; // different time, no conflict possible
+      // Rule 1: same court (and court is non-empty)
+      const courtConflict = e1.court && e2.court && e1.court.toLowerCase() === e2.court.toLowerCase();
+      // Rule 2: shared player (ignore BYE/TBD)
+      const players1 = [e1.p1, e1.p2].filter(p => p && p!=='BYE' && p!=='TBD');
+      const players2 = [e2.p1, e2.p2].filter(p => p && p!=='BYE' && p!=='TBD');
+      const sharedPlayer = players1.find(p => players2.includes(p));
+
+      if (courtConflict || sharedPlayer) {
+        // Only flag the row-side entries (savedMatches alone vs savedMatches alone isn't actionable here)
+        [e1, e2].forEach(e => {
+          if (!e.isRow) return;
+          if (!conflicts[e.idx]) conflicts[e.idx] = { court: false, player: false, reasons: [] };
+          if (courtConflict) { conflicts[e.idx].court = true; conflicts[e.idx].reasons.push(`Court "${e1.court}" double-booked`); }
+          if (sharedPlayer) { conflicts[e.idx].player = true; conflicts[e.idx].reasons.push(`${sharedPlayer} has another match at this time`); }
+        });
+      }
+    }
+  }
+  return conflicts;
+}
 let _bracketVisible = false;
 
 async function openBulkRoundManager(presetRound = null) {
@@ -4643,6 +4693,7 @@ async function openBulkRoundManager(presetRound = null) {
     : [];
 
   _bulkRound = activeRound;
+  _bulkAllMatches = allMatches || []; // cache full tournament match list for cross-round conflict checks
   _bulkMatches = roundMatches.map(m => ({
     id: m.id||null,
     p1: m.player1_name||'', p2: m.player2_name||'',
@@ -4703,6 +4754,7 @@ async function openBulkRoundManager(presetRound = null) {
       </div>
 
       <!-- Match rows -->
+      <div id="brm-conflict-summary"></div>
       <div class="round-manager">
         <div class="bulk-header">
           <span>Match</span>
@@ -4752,22 +4804,28 @@ async function switchBRMRound(roundName, btn) {
 function renderBulkRows(players) {
   const c = document.getElementById('brm-rows');
   if (!c) return;
+  const conflicts = detectScheduleConflicts(_bulkMatches, _bulkAllMatches);
   c.innerHTML = _bulkMatches.map((m, i) => {
     const isBye = m.p2 === 'BYE';
     const matchLabel = m.p1 && m.p2
       ? `<div style="font-weight:700;font-size:.83rem;">${esc(m.p1)}</div><div style="font-size:.72rem;color:var(--gray-mid);">vs ${isBye?'<span style=\'background:var(--amber);color:#fff;border-radius:4px;padding:0 5px;font-size:.7rem;\'>BYE</span>':esc(m.p2)}</div>`
       : '<span style="color:var(--gray-soft);font-size:.8rem;">—</span>';
-    return `<div class="bulk-row" id="bulk-row-${i}" style="grid-template-columns:minmax(140px,1.5fr) 1fr 1fr 1fr 1fr 1fr;">
+    const conflict = conflicts[i];
+    const conflictBadge = conflict
+      ? `<div style="grid-column:1/-1;background:#FEE2E2;color:#b91c1c;font-size:.72rem;font-weight:700;padding:.35rem .6rem;border-radius:8px;margin-top:.3rem;display:flex;align-items:center;gap:.4rem;">⚠️ OVERLAP — ${esc([...new Set(conflict.reasons)].join(' · '))}</div>`
+      : '';
+    return `<div class="bulk-row" id="bulk-row-${i}" style="grid-template-columns:minmax(140px,1.5fr) 1fr 1fr 1fr 1fr 1fr;${conflict?'background:rgba(185,28,28,.04);border-color:rgba(185,28,28,.25);':''}">
       <div style="padding:.4rem .2rem;">${matchLabel}</div>
-      <input type="date" value="${m.date||''}" onchange="_bulkMatches[${i}].date=this.value"/>
-      <input type="time" value="${m.time||''}" onchange="_bulkMatches[${i}].time=this.value"/>
+      <input type="date" value="${m.date||''}" onchange="_bulkMatches[${i}].date=this.value;renderBulkRows([])"/>
+      <input type="time" value="${m.time||''}" onchange="_bulkMatches[${i}].time=this.value;renderBulkRows([])"/>
       <input type="text" value="${m.venue||''}" placeholder="Venue" onchange="_bulkMatches[${i}].venue=this.value"/>
-      <input type="text" value="${m.court||''}" placeholder="Court/Table" onchange="_bulkMatches[${i}].court=this.value"/>
+      <input type="text" value="${m.court||''}" placeholder="Court/Table" onchange="_bulkMatches[${i}].court=this.value;renderBulkRows([])"/>
       <select onchange="_bulkMatches[${i}].status=this.value;updateBulkRowResult(${i})">
         <option value="pending" ${m.status==='pending'?'selected':''}>Pending</option>
         <option value="ongoing" ${m.status==='ongoing'?'selected':''}>Ongoing</option>
         <option value="completed" ${m.status==='completed'?'selected':''}>Completed</option>
       </select>
+      ${conflictBadge}
       ${m.status==='completed'?`<div style="grid-column:1/-1;display:flex;gap:.5rem;padding:.35rem 0;border-top:1px solid rgba(0,0,0,.06);margin-top:.25rem;">
         <select onchange="_bulkMatches[${i}].result=this.value" style="flex:1;">
           <option value="">Result</option>
@@ -4780,6 +4838,17 @@ function renderBulkRows(players) {
       </div>`:''}
     </div>`;
   }).join('');
+
+  // Show a summary banner if any conflicts exist anywhere in this round
+  const summaryEl = document.getElementById('brm-conflict-summary');
+  const conflictCount = Object.keys(conflicts).length;
+  if (summaryEl) {
+    summaryEl.innerHTML = conflictCount > 0
+      ? `<div style="background:#FEE2E2;border:1px solid rgba(185,28,28,.25);border-radius:10px;padding:.6rem .9rem;margin-bottom:.75rem;font-size:.82rem;color:#922626;display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap;">
+          <span>⚠️ <strong>${conflictCount} match${conflictCount>1?'es':''}</strong> ha${conflictCount>1?'ve':'s'} a scheduling overlap (same court, or a player double-booked). You can still save if this is intentional.</span>
+        </div>`
+      : '';
+  }
 }
 
 function updateBulkRowResult(i) {
@@ -5331,6 +5400,7 @@ function toggleResultSection() {
 // ── Open Add Match Modal ──
 async function openAddMatchModal(editId = null) {
   const err = document.getElementById('am-err'); err.style.display = 'none';
+  document.getElementById('am-conflict-warning').innerHTML = '';
   document.getElementById('am-edit-id').value = editId || '';
   document.getElementById('am-title').textContent = editId ? 'Edit Match' : 'Add Match';
   document.getElementById('am-team-mode').checked = false;
@@ -5376,6 +5446,33 @@ async function openAddMatchModal(editId = null) {
     }
   }
   document.getElementById('add-match-modal').classList.add('open');
+  checkAmConflict();
+}
+
+// Live conflict check for the single Add/Edit Match modal
+async function checkAmConflict() {
+  const el = document.getElementById('am-conflict-warning');
+  if (!el || !currentTournId) return;
+  const date = document.getElementById('am-date')?.value;
+  const time = document.getElementById('am-time')?.value;
+  if (!date || !time) { el.innerHTML = ''; return; }
+
+  const isTeam = document.getElementById('am-team-mode')?.checked;
+  const p1 = isTeam ? document.getElementById('am-team1')?.value : document.getElementById('am-p1')?.value;
+  const p2 = isTeam ? document.getElementById('am-team2')?.value : document.getElementById('am-p2')?.value;
+  const court = (document.getElementById('am-court')?.value || '').trim();
+  const editId = document.getElementById('am-edit-id')?.value || null;
+
+  const { data: matches } = await sb.from('matches').select('id,player1_name,player2_name,match_date,match_time,court').eq('tournament_id', currentTournId);
+  const conflicts = detectScheduleConflicts(
+    [{ id: editId, p1, p2, date, time, court }],
+    matches || [],
+    editId || undefined
+  );
+  const c = conflicts[0];
+  el.innerHTML = c
+    ? `<div style="background:#FEE2E2;color:#b91c1c;font-size:.8rem;font-weight:600;padding:.55rem .8rem;border-radius:10px;margin:-.25rem 0 .75rem;">⚠️ OVERLAP — ${esc([...new Set(c.reasons)].join(' · '))}. You can still save if intentional.</div>`
+    : '';
 }
 
 async function submitMatch() {
