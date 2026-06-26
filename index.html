@@ -4807,14 +4807,15 @@ function renderBulkRows(players) {
   const conflicts = detectScheduleConflicts(_bulkMatches, _bulkAllMatches);
   c.innerHTML = _bulkMatches.map((m, i) => {
     const isBye = m.p2 === 'BYE';
-    const matchLabel = m.p1 && m.p2
-      ? `<div style="font-weight:700;font-size:.83rem;">${esc(m.p1)}</div><div style="font-size:.72rem;color:var(--gray-mid);">vs ${isBye?'<span style=\'background:var(--amber);color:#fff;border-radius:4px;padding:0 5px;font-size:.7rem;\'>BYE</span>':esc(m.p2)}</div>`
-      : '<span style="color:var(--gray-soft);font-size:.8rem;">—</span>';
     const conflict = conflicts[i];
-    const conflictBadge = conflict
-      ? `<div style="grid-column:1/-1;background:#FEE2E2;color:#b91c1c;font-size:.72rem;font-weight:700;padding:.35rem .6rem;border-radius:8px;margin-top:.3rem;display:flex;align-items:center;gap:.4rem;">⚠️ OVERLAP — ${esc([...new Set(conflict.reasons)].join(' · '))}</div>`
+    const conflictTitle = conflict ? esc([...new Set(conflict.reasons)].join(' · ')) : '';
+    const conflictTag = conflict
+      ? `<span title="${conflictTitle}" style="display:inline-flex;align-items:center;gap:3px;background:#FEF2F2;color:#b91c1c;font-size:.62rem;font-weight:700;padding:1px 7px;border-radius:100px;margin-left:6px;cursor:help;border:1px solid #FECACA;">⚠ overlap</span>`
       : '';
-    return `<div class="bulk-row" id="bulk-row-${i}" style="grid-template-columns:minmax(140px,1.5fr) 1fr 1fr 1fr 1fr 1fr;${conflict?'background:rgba(185,28,28,.04);border-color:rgba(185,28,28,.25);':''}">
+    const matchLabel = m.p1 && m.p2
+      ? `<div style="font-weight:700;font-size:.83rem;">${esc(m.p1)}${conflictTag}</div><div style="font-size:.72rem;color:var(--gray-mid);">vs ${isBye?'<span style=\'background:var(--amber);color:#fff;border-radius:4px;padding:0 5px;font-size:.7rem;\'>BYE</span>':esc(m.p2)}</div>`
+      : '<span style="color:var(--gray-soft);font-size:.8rem;">—</span>';
+    return `<div class="bulk-row" id="bulk-row-${i}" style="grid-template-columns:minmax(140px,1.5fr) 1fr 1fr 1fr 1fr 1fr;${conflict?'border-left:3px solid #FCA5A5;':''}">
       <div style="padding:.4rem .2rem;">${matchLabel}</div>
       <input type="date" value="${m.date||''}" onchange="_bulkMatches[${i}].date=this.value;renderBulkRows([])"/>
       <input type="time" value="${m.time||''}" onchange="_bulkMatches[${i}].time=this.value;renderBulkRows([])"/>
@@ -4825,7 +4826,6 @@ function renderBulkRows(players) {
         <option value="ongoing" ${m.status==='ongoing'?'selected':''}>Ongoing</option>
         <option value="completed" ${m.status==='completed'?'selected':''}>Completed</option>
       </select>
-      ${conflictBadge}
       ${m.status==='completed'?`<div style="grid-column:1/-1;display:flex;gap:.5rem;padding:.35rem 0;border-top:1px solid rgba(0,0,0,.06);margin-top:.25rem;">
         <select onchange="_bulkMatches[${i}].result=this.value" style="flex:1;">
           <option value="">Result</option>
@@ -4833,6 +4833,7 @@ function renderBulkRows(players) {
           <option value="player2_win" ${m.result==='player2_win'?'selected':''}>${esc(m.p2||'P2')} Won</option>
           <option value="draw" ${m.result==='draw'?'selected':''}>Draw</option>
           <option value="walkover">Walkover</option>
+
         </select>
         <input type="text" value="${m.score||''}" placeholder="Score e.g. 21-18, 15-21, 21-16" onchange="_bulkMatches[${i}].score=this.value" style="flex:2;"/>
       </div>`:''}
@@ -4844,7 +4845,7 @@ function renderBulkRows(players) {
   const conflictCount = Object.keys(conflicts).length;
   if (summaryEl) {
     summaryEl.innerHTML = conflictCount > 0
-      ? `<div style="background:#FEE2E2;border:1px solid rgba(185,28,28,.25);border-radius:10px;padding:.6rem .9rem;margin-bottom:.75rem;font-size:.82rem;color:#922626;display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap;">
+      ? `<div style="background:var(--amber-pale);border:1px solid rgba(186,117,23,.25);border-radius:10px;padding:.55rem .9rem;margin-bottom:.75rem;font-size:.8rem;color:#9a5e0a;display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap;">
           <span>⚠️ <strong>${conflictCount} match${conflictCount>1?'es':''}</strong> ha${conflictCount>1?'ve':'s'} a scheduling overlap (same court, or a player double-booked). You can still save if this is intentional.</span>
         </div>`
       : '';
@@ -5471,7 +5472,7 @@ async function checkAmConflict() {
   );
   const c = conflicts[0];
   el.innerHTML = c
-    ? `<div style="background:#FEE2E2;color:#b91c1c;font-size:.8rem;font-weight:600;padding:.55rem .8rem;border-radius:10px;margin:-.25rem 0 .75rem;">⚠️ OVERLAP — ${esc([...new Set(c.reasons)].join(' · '))}. You can still save if intentional.</div>`
+    ? `<div style="background:var(--amber-pale);color:#9a5e0a;font-size:.78rem;font-weight:600;padding:.5rem .75rem;border-radius:10px;margin:-.25rem 0 .75rem;border:1px solid rgba(186,117,23,.2);">⚠️ Overlap — ${esc([...new Set(c.reasons)].join(' · '))}. You can still save if intentional.</div>`
     : '';
 }
 
