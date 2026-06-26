@@ -128,6 +128,7 @@ footer{background:#1a1a18;color:rgba(255,255,255,.45);padding:0 5%;font-size:.82
 
 /* AUTH */
 .auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:5rem 1rem 2rem;background:linear-gradient(145deg,#edfaf4 0%,var(--gray-pale) 100%);}
+[data-theme="dark"] .auth-wrap{background:linear-gradient(145deg,rgba(45,212,160,.06) 0%,#0E0E0D 100%);}
 .auth-box{background:var(--white);border-radius:24px;padding:2.5rem;width:100%;max-width:440px;box-shadow:0 16px 60px rgba(0,0,0,.1);border:1px solid rgba(0,0,0,.06);}
 .auth-box h2{font-family:var(--fh);font-size:1.6rem;font-weight:800;color:var(--gray-dark);margin-bottom:.35rem;}
 .auth-box .sub{font-size:.88rem;color:var(--gray-mid);margin-bottom:1.75rem;}
@@ -157,6 +158,12 @@ footer{background:#1a1a18;color:rgba(255,255,255,.45);padding:0 5%;font-size:.82
 .role-card.player h3{color:var(--teal);}
 .role-card.organiser h3{color:var(--amber);}
 .role-card p{font-size:.8rem;color:var(--gray-mid);line-height:1.55;}
+.feature-card{border-radius:20px;padding:1.75rem;}
+.feature-card.fc-player{background:linear-gradient(135deg,var(--teal-pale),#f0fbf6);}
+.feature-card.fc-organiser{background:linear-gradient(135deg,var(--amber-pale),#fffaf0);}
+[data-theme="dark"] .feature-card.fc-player{background:linear-gradient(135deg,rgba(45,212,160,.1),rgba(45,212,160,.03));border:1px solid rgba(45,212,160,.12);}
+[data-theme="dark"] .feature-card.fc-organiser{background:linear-gradient(135deg,rgba(245,192,89,.1),rgba(245,192,89,.03));border:1px solid rgba(245,192,89,.12);}
+.feature-card li{font-size:.86rem;color:var(--gray-mid);}
 
 /* DASHBOARD */
 .dash-shell{display:flex;min-height:100vh;padding-top:64px;}
@@ -674,24 +681,24 @@ footer{background:#1a1a18;color:rgba(255,255,255,.45);padding:0 5%;font-size:.82
       <div style="font-size:.75rem;font-weight:700;letter-spacing:1.5px;color:var(--teal);text-transform:uppercase;margin-bottom:.65rem;">Features</div>
       <h2 style="font-family:var(--fh);font-size:2.2rem;font-weight:800;color:var(--gray-dark);margin-bottom:2rem;">Built for players & organisers.</h2>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">
-        <div style="background:linear-gradient(135deg,var(--teal-pale),#f0fbf6);border-radius:20px;padding:1.75rem;">
+        <div class="feature-card fc-player">
           <h3 style="font-family:var(--fh);font-size:1.1rem;font-weight:800;color:var(--teal);margin-bottom:.9rem;">🏅 For Players</h3>
           <ul style="list-style:none;display:flex;flex-direction:column;gap:.55rem;">
-            <li style="font-size:.86rem;color:var(--gray-mid);">✓ Unique TR-ID for life</li>
-            <li style="font-size:.86rem;color:var(--gray-mid);">✓ Register for tournaments instantly</li>
-            <li style="font-size:.86rem;color:var(--gray-mid);">✓ View your matches and schedule</li>
-            <li style="font-size:.86rem;color:var(--gray-mid);">✓ Upload and store certificates</li>
-            <li style="font-size:.86rem;color:var(--gray-mid);">✓ Full match history</li>
+            <li>✓ Unique TR-ID for life</li>
+            <li>✓ Register for tournaments instantly</li>
+            <li>✓ View your matches and schedule</li>
+            <li>✓ Upload and store certificates</li>
+            <li>✓ Full match history</li>
           </ul>
         </div>
-        <div style="background:linear-gradient(135deg,var(--amber-pale),#fffaf0);border-radius:20px;padding:1.75rem;">
+        <div class="feature-card fc-organiser">
           <h3 style="font-family:var(--fh);font-size:1.1rem;font-weight:800;color:var(--amber);margin-bottom:.9rem;">📋 For Organisers</h3>
           <ul style="list-style:none;display:flex;flex-direction:column;gap:.55rem;">
-            <li style="font-size:.86rem;color:var(--gray-mid);">✓ Create tournaments easily</li>
-            <li style="font-size:.86rem;color:var(--gray-mid);">✓ Manage registrations</li>
-            <li style="font-size:.86rem;color:var(--gray-mid);">✓ Track payments via UPI</li>
-            <li style="font-size:.86rem;color:var(--gray-mid);">✓ Enter match results</li>
-            <li style="font-size:.86rem;color:var(--gray-mid);">✓ View player details</li>
+            <li>✓ Create tournaments easily</li>
+            <li>✓ Manage registrations</li>
+            <li>✓ Track payments via UPI</li>
+            <li>✓ Enter match results</li>
+            <li>✓ View player details</li>
           </ul>
         </div>
       </div>
@@ -3220,6 +3227,20 @@ function generateSEPairings(regs, round, roundNum) {
 }
 
 // generateSEBracket: seeded pairing with BYEs for non-power-of-2
+// Uses standard recursive bracket seeding so seed 1 & 2 can only meet in the final
+// (not naive 1vN, 2vN-1 pairing, which lets top seeds collide as early as round 1)
+function standardSeedOrder(size) {
+  // Builds the canonical bracket slot order for `size` players: [1, size, size/2+1, ...]
+  let order = [1, 2];
+  while (order.length < size) {
+    const next = [];
+    const total = order.length * 2 + 1;
+    for (const s of order) { next.push(s, total - s); }
+    order = next;
+  }
+  return order;
+}
+
 function generateSEBracket(regs) {
   const seeded = [...regs].sort((a,b) => (a.seed_number||9999)-(b.seed_number||9999));
   const n = seeded.length;
@@ -3227,12 +3248,14 @@ function generateSEBracket(regs) {
   // Pad to next power of 2
   const size = Math.pow(2, Math.ceil(Math.log2(Math.max(n,2))));
   // Fill slots: top seeds first, rest null = BYE
-  const slots = Array(size).fill(null);
-  for (let i=0;i<n;i++) slots[i] = seeded[i];
-  // Standard bracket seeding: 1v(size), 2v(size-1)...
+  const slotPlayers = Array(size).fill(null);
+  for (let i=0;i<n;i++) slotPlayers[i] = seeded[i];
+  // Map seed number (1-indexed) -> slot position using standard bracket order
+  const order = standardSeedOrder(size); // e.g. for size 8: [1,8,4,5,2,7,3,6]
+  const bracketSlots = order.map(seedNum => slotPlayers[seedNum - 1]);
   const pairs = [];
-  for (let i=0;i<size/2;i++) {
-    pairs.push({ p1: slots[i], p2: slots[size-1-i] });
+  for (let i=0;i<size;i+=2) {
+    pairs.push({ p1: bracketSlots[i], p2: bracketSlots[i+1] });
   }
   return pairs;
 }
@@ -4337,31 +4360,160 @@ function selectGSMethod(m) {
 function previewGroupDist() {
   const numGroups = parseInt(document.getElementById('gs-num-groups')?.value) || 4;
   const regs = window._currentRegs?.filter(r=>r.status==='approved') || [];
-  const groups = distributeToGroups(regs, numGroups, _gsMethod);
-  _gsPreviewGroups = groups;
   const el = document.getElementById('gs-preview');
   if (!el) return;
+
   if (_gsMethod === 'manual') {
-    el.innerHTML = `<div style="font-size:.82rem;color:var(--gray-mid);">Manual distribution: drag players between groups. (Drag-and-drop coming soon — for now use AI Seeded and reorder seeds in Participants tab.)</div>
-      <div style="display:grid;grid-template-columns:repeat(${Math.min(numGroups,4)},1fr);gap:.5rem;margin-top:.5rem;">
-        ${groups.map(g => `<div style="background:var(--gray-pale);border-radius:10px;padding:.75rem;">
-          <strong style="color:var(--teal);">Group ${esc(g.name)}</strong>
-          ${g.members.map(m=>`<div style="font-size:.78rem;padding:.2rem 0;">${esc(m.player_name||m)}</div>`).join('')}
-        </div>`).join('')}
-      </div>`;
-  } else {
-    el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(${Math.min(numGroups,4)},1fr);gap:.5rem;">
+    // Keep existing manual assignment if switching back, otherwise start fresh with unassigned pool
+    if (!_gsManualGroups.length || _gsManualGroups.length !== numGroups) {
+      _gsManualGroups = Array.from({length: numGroups}, (_,i) => ({ name: String.fromCharCode(65+i), members: [] }));
+      _gsManualUnassigned = [...regs];
+    } else {
+      // re-sync unassigned pool with current approved regs (in case registrations changed)
+      const assignedNames = new Set(_gsManualGroups.flatMap(g=>g.members.map(m=>m.player_name)));
+      _gsManualUnassigned = regs.filter(r => !assignedNames.has(r.player_name));
+    }
+    _gsPreviewGroups = _gsManualGroups;
+    renderManualGroupUI();
+    return;
+  }
+
+  const groups = distributeToGroups(regs, numGroups, _gsMethod);
+  _gsPreviewGroups = groups;
+  const seedsSet = regs.filter(r => r.seed_number).length;
+  const seedWarning = (_gsMethod === 'ai' && seedsSet < regs.length)
+    ? `<div style="background:var(--amber-pale);border-radius:10px;padding:.6rem .85rem;margin-bottom:.75rem;font-size:.8rem;color:#9a5e0a;">⚠️ Only ${seedsSet}/${regs.length} players have a seed number set. Unseeded players are treated as lowest seed, so top seeds may not be spread out correctly. Set seeds in the <strong>Participants</strong> tab for proper seeding.</div>`
+    : '';
+  el.innerHTML = `${seedWarning}<div style="display:grid;grid-template-columns:repeat(${Math.min(numGroups,4)},1fr);gap:.5rem;">
       ${groups.map(g => `<div style="background:var(--gray-pale);border-radius:10px;padding:.75rem;">
         <strong style="color:var(--teal);font-size:.85rem;">Group ${esc(g.name)}</strong>
         ${g.members.map((m,i)=>`<div style="font-size:.78rem;padding:.2rem 0;"><span style="color:var(--gray-mid);">S${m.seed_number||'?'}</span> ${esc(m.player_name||m)}</div>`).join('')}
       </div>`).join('')}
     </div>`;
+}
+
+// ── Manual grouping state ──
+let _gsManualGroups = [];
+let _gsManualUnassigned = [];
+let _gsDraggedPlayer = null;
+
+function renderManualGroupUI() {
+  const el = document.getElementById('gs-preview');
+  if (!el) return;
+  const numGroups = _gsManualGroups.length;
+  el.innerHTML = `
+    <div style="font-size:.8rem;color:var(--gray-mid);margin-bottom:.75rem;">✋ Drag players into groups, or tap a player then tap a group. ${_gsManualUnassigned.length} unassigned.</div>
+    <div style="background:var(--gray-pale);border-radius:10px;padding:.65rem .75rem;margin-bottom:.75rem;min-height:42px;" id="gs-unassigned-pool" ondragover="event.preventDefault()" ondrop="dropOnUnassigned(event)">
+      <div style="font-size:.72rem;font-weight:700;color:var(--gray-mid);margin-bottom:.4rem;text-transform:uppercase;">Unassigned Pool</div>
+      <div style="display:flex;flex-wrap:wrap;gap:.4rem;">
+        ${_gsManualUnassigned.map(p => renderManualChip(p, -1)).join('') || '<span style="font-size:.78rem;color:var(--gray-soft);">All players assigned ✓</span>'}
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(${Math.min(numGroups,4)},1fr);gap:.5rem;">
+      ${_gsManualGroups.map((g,gi) => `
+        <div style="background:var(--white);border:1.5px dashed rgba(0,0,0,.15);border-radius:10px;padding:.65rem;min-height:90px;" ondragover="event.preventDefault()" ondrop="dropOnGroup(event,${gi})" onclick="tapAssignToGroup(${gi})">
+          <strong style="color:var(--teal);font-size:.85rem;">Group ${esc(g.name)} <span style="color:var(--gray-mid);font-weight:400;font-size:.72rem;">(${g.members.length})</span></strong>
+          <div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.4rem;">
+            ${g.members.map(p => renderManualChip(p, gi)).join('')}
+          </div>
+        </div>`).join('')}
+    </div>
+    <div style="margin-top:.75rem;display:flex;gap:.5rem;">
+      <button class="btn btn-ghost btn-sm" onclick="autoFillRemaining()">🤖 Auto-fill remaining (seeded)</button>
+      <button class="btn btn-ghost btn-sm" onclick="resetManualGroups()">↺ Reset</button>
+    </div>
+  `;
+}
+
+function renderManualChip(p, currentGroupIdx) {
+  const selected = _gsDraggedPlayer === p.player_name;
+  return `<span draggable="true" ondragstart="startDragPlayer(event,'${(p.player_name||'').replace(/'/g,"\\'")}')"
+    onclick="event.stopPropagation();tapSelectPlayer('${(p.player_name||'').replace(/'/g,"\\'")}')"
+    style="background:${selected?'var(--teal)':'var(--teal-pale)'};color:${selected?'#fff':'var(--teal)'};border-radius:100px;padding:.3rem .7rem;font-size:.76rem;font-weight:600;cursor:grab;display:inline-flex;align-items:center;gap:4px;">
+    ${p.seed_number?'S'+p.seed_number+' · ':''}${esc(p.player_name)}
+  </span>`;
+}
+
+function startDragPlayer(e, name) { _gsDraggedPlayer = name; e.dataTransfer.setData('text/plain', name); }
+function tapSelectPlayer(name) { _gsDraggedPlayer = (_gsDraggedPlayer === name) ? null : name; renderManualGroupUI(); }
+
+function _findManualPlayer(name) {
+  if (_gsManualUnassigned.find(p=>p.player_name===name)) return { from: -1 };
+  for (let i=0;i<_gsManualGroups.length;i++) { if (_gsManualGroups[i].members.find(p=>p.player_name===name)) return { from: i }; }
+  return null;
+}
+function _removeManualPlayer(name) {
+  let removed = null;
+  const ui = _gsManualUnassigned.findIndex(p=>p.player_name===name);
+  if (ui > -1) { removed = _gsManualUnassigned.splice(ui,1)[0]; return removed; }
+  for (const g of _gsManualGroups) {
+    const gi = g.members.findIndex(p=>p.player_name===name);
+    if (gi > -1) { removed = g.members.splice(gi,1)[0]; return removed; }
   }
+  return removed;
+}
+
+function dropOnGroup(e, groupIdx) {
+  e.preventDefault();
+  const name = e.dataTransfer.getData('text/plain') || _gsDraggedPlayer;
+  if (!name) return;
+  const player = _removeManualPlayer(name);
+  if (player) _gsManualGroups[groupIdx].members.push(player);
+  _gsDraggedPlayer = null;
+  _gsPreviewGroups = _gsManualGroups;
+  renderManualGroupUI();
+}
+function dropOnUnassigned(e) {
+  e.preventDefault();
+  const name = e.dataTransfer.getData('text/plain') || _gsDraggedPlayer;
+  if (!name) return;
+  const player = _removeManualPlayer(name);
+  if (player) _gsManualUnassigned.push(player);
+  _gsDraggedPlayer = null;
+  _gsPreviewGroups = _gsManualGroups;
+  renderManualGroupUI();
+}
+function tapAssignToGroup(groupIdx) {
+  if (!_gsDraggedPlayer) return;
+  const player = _removeManualPlayer(_gsDraggedPlayer);
+  if (player) _gsManualGroups[groupIdx].members.push(player);
+  _gsDraggedPlayer = null;
+  _gsPreviewGroups = _gsManualGroups;
+  renderManualGroupUI();
+}
+function autoFillRemaining() {
+  if (!_gsManualUnassigned.length) return;
+  const numGroups = _gsManualGroups.length;
+  const seeded = [..._gsManualUnassigned].sort((a,b)=>(a.seed_number||9999)-(b.seed_number||9999));
+  // Snake-fill remaining into groups with fewest members first, respecting seed order
+  seeded.forEach(p => {
+    const targetIdx = _gsManualGroups.reduce((minI,g,i,arr) => g.members.length < arr[minI].members.length ? i : minI, 0);
+    _gsManualGroups[targetIdx].members.push(p);
+  });
+  _gsManualUnassigned = [];
+  _gsPreviewGroups = _gsManualGroups;
+  renderManualGroupUI();
+}
+function resetManualGroups() {
+  const numGroups = _gsManualGroups.length || parseInt(document.getElementById('gs-num-groups')?.value) || 4;
+  const regs = window._currentRegs?.filter(r=>r.status==='approved') || [];
+  _gsManualGroups = Array.from({length: numGroups}, (_,i) => ({ name: String.fromCharCode(65+i), members: [] }));
+  _gsManualUnassigned = [...regs];
+  _gsPreviewGroups = _gsManualGroups;
+  renderManualGroupUI();
 }
 
 async function lockGroups(tournId) {
   if (!_gsPreviewGroups.length) { previewGroupDist(); }
   if (!_gsPreviewGroups.length) { alert('Please preview distribution first.'); return; }
+  if (_gsMethod === 'manual' && _gsManualUnassigned.length > 0) {
+    showToast(`⚠️ ${_gsManualUnassigned.length} player(s) still unassigned. Drag them into a group or use Auto-fill first.`, 'warning');
+    return;
+  }
+  if (_gsMethod === 'manual' && _gsManualGroups.some(g => g.members.length === 0)) {
+    showToast('⚠️ One or more groups have no players. Add at least one player to every group.', 'warning');
+    return;
+  }
   const numQualifiers = parseInt(document.getElementById('gs-qualifiers')?.value) || 2;
   localStorage.setItem('tr_groups_'+tournId, JSON.stringify(_gsPreviewGroups));
   localStorage.setItem('tr_qualifiers_'+tournId, numQualifiers);
