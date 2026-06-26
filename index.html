@@ -2125,10 +2125,10 @@ async function loadAllTournaments() {
   const { data: myRegs } = await sb.from('registrations').select('tournament_id').eq('player_id', currentUser.id);
   const myTournIds = new Set((myRegs || []).map(r => r.tournament_id));
   if (!tourns?.length) { c.innerHTML = '<div class="empty-state"><div class="eico">🏆</div><p>No tournaments available yet.</p></div>'; return; }
-  // get registration counts — count by tournament_id
+  // get registration counts — use public_registrations view (RLS on raw table hides other players' rows from a player session)
   const countMap = {};
   for (const t of tourns) {
-    const { count } = await sb.from('registrations').select('*', { count: 'exact', head: true }).eq('tournament_id', t.id).eq('status','approved');
+    const { count } = await sb.from('public_registrations').select('*', { count: 'exact', head: true }).eq('tournament_id', t.id);
     countMap[t.id] = count || 0;
   }
 
@@ -5105,8 +5105,9 @@ async function searchByTournId() {
     result.innerHTML = `<div style="padding:1rem;background:#FCEBEB;border-radius:10px;color:#A32D2D;font-weight:700;">❌ Invalid Tournament ID — no tournament found with ID "${input}"</div>`;
     return;
   }
-  const { data: regs } = await sb.from('registrations').select('id').eq('tournament_id', t.id);
-  const spotsLeft = t.max_players - (regs||[]).filter(r=>r.status==='approved').length;
+  // Use public_registrations view for the count (raw table's RLS hides other players' rows from this session)
+  const { data: regs } = await sb.from('public_registrations').select('id').eq('tournament_id', t.id);
+  const spotsLeft = t.max_players - (regs||[]).length;
   const { data: myReg } = await sb.from('registrations').select('id').eq('tournament_id', t.id).eq('player_id', currentUser.id).single();
   result.innerHTML = `<div class="tourn-card" style="margin-bottom:0;">
     <div class="tourn-card-top"><h4>${t.name} <span style="font-size:.75rem;color:var(--teal);font-family:monospace;">${t.public_id}</span></h4><span class="badge ${t.status==='upcoming'?'upcoming':t.status==='ongoing'?'live':'win'}">${t.status}</span></div>
@@ -5157,14 +5158,15 @@ async function openTournDetail(id) {
   document.getElementById('tdm-content').innerHTML = skelList(3);
   document.getElementById('tourn-detail-modal').classList.add('open');
   const { data: t } = await sb.from('public_tournaments').select('*').eq('id', id).single();
-  const [{ data: regs }, { data: allMatches }, { data: anns }] = await Promise.all([
-    sb.from('registrations').select('*').eq('tournament_id', id),
+  const [{ data: regs }, { data: allMatches }, { data: anns }, { data: myReg }] = await Promise.all([
+    sb.from('public_registrations').select('*').eq('tournament_id', id),
     sb.from('matches').select('*').eq('tournament_id', id).order('round_number').order('created_at'),
-    sb.from('announcements').select('*').eq('tournament_id', id).order('created_at', { ascending: false })
+    sb.from('announcements').select('*').eq('tournament_id', id).order('created_at', { ascending: false }),
+    currentUser ? sb.from('registrations').select('id,status').eq('tournament_id', id).eq('player_id', currentUser.id).maybeSingle() : Promise.resolve({ data: null })
   ]);
-  const spotsUsed = (regs||[]).filter(r=>r.status==='approved').length;
+  const spotsUsed = (regs||[]).length; // public_registrations view already only contains approved rows
   const spotsLeft = t.max_players - spotsUsed;
-  const isReg = regs?.some(r => r.player_id === currentUser?.id);
+  const isReg = !!myReg;
   const myMatches = (allMatches||[]).filter(m => m.player1_name === currentUser?.full_name || m.player2_name === currentUser?.full_name);
   const standings = computeStandings(allMatches||[], regs||[]);
   // round progression for this player
