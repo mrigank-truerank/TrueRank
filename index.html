@@ -1197,7 +1197,17 @@ footer{background:#1a1a18;color:rgba(255,255,255,.45);padding:0 5%;font-size:.82
                 </div>
               </div>
               <div id="ct-format-hint" style="background:var(--teal-pale);border-radius:10px;padding:.75rem 1rem;font-size:.82rem;color:var(--teal);"></div>
-              <div class="form-group"><label>Max Players *</label><input type="number" id="ct-maxplayers" placeholder="e.g. 16" min="4" oninput="updateSwissHint()"/></div>
+              <div style="display:flex;align-items:center;gap:.75rem;background:var(--gray-pale);padding:.75rem 1rem;border-radius:10px;">
+                <input type="checkbox" id="ct-team-mode" onchange="toggleCtTeamMode()" style="width:16px;height:16px;cursor:pointer;"/>
+                <label for="ct-team-mode" style="font-size:.85rem;font-weight:600;cursor:pointer;margin:0;">This is a Team / Doubles Tournament</label>
+              </div>
+              <div id="ct-team-size-group" style="display:none;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                  <div class="form-group"><label>Min Players per Team *</label><input type="number" id="ct-min-team-size" placeholder="e.g. 2" min="1"/></div>
+                  <div class="form-group"><label>Max Players per Team *</label><input type="number" id="ct-max-team-size" placeholder="e.g. 4" min="1"/></div>
+                </div>
+              </div>
+              <div class="form-group"><label id="ct-maxplayers-label">Max Players *</label><input type="number" id="ct-maxplayers" placeholder="e.g. 16" min="4" oninput="updateSwissHint()"/></div>
               <div id="ct-swiss-rounds-hint" style="display:none;background:var(--amber-pale);border-radius:8px;padding:.6rem 1rem;font-size:.8rem;color:var(--amber);"></div>
               <div class="form-group"><label>Location / Venue *</label><input type="text" id="ct-location" placeholder="e.g. Nehru Stadium, Indore"/></div>
               <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">
@@ -1274,7 +1284,7 @@ footer{background:#1a1a18;color:rgba(255,255,255,.45);padding:0 5%;font-size:.82
               </div>
             </div>
             <div style="overflow-x:auto;"><table class="data-table" id="otd-regs-table">
-              <thead><tr><th>Player</th><th>Age</th><th>Gender</th><th>Payment</th><th>TXN ID</th><th>Check In</th><th>Seed</th><th>Status</th></tr></thead>
+              <thead><tr><th>Player</th><th>Team</th><th>Age</th><th>Gender</th><th>Payment</th><th>TXN ID</th><th>Check In</th><th>Seed</th><th>Status</th></tr></thead>
               <tbody id="otd-regs-body"></tbody>
             </table></div>
           </div>
@@ -1471,11 +1481,20 @@ footer{background:#1a1a18;color:rgba(255,255,255,.45);padding:0 5%;font-size:.82
     <h2 id="rtm-title">Register for Tournament</h2>
     <div class="modal-sub" id="rtm-sub"></div>
     <div id="rtm-err" class="err"></div>
-    <div class="form-group"><label>Your Name *</label><input type="text" id="rtm-name" placeholder="Full name"/></div>
+    <div class="form-group"><label id="rtm-name-label">Your Name *</label><input type="text" id="rtm-name" placeholder="Full name"/></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
       <div class="form-group"><label>Age *</label><input type="number" id="rtm-age" placeholder="Age" min="5" max="100"/></div>
       <div class="form-group"><label>Gender *</label>
         <select id="rtm-gender"><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select>
+      </div>
+    </div>
+    <div id="rtm-team-section" style="display:none;">
+      <div class="form-group"><label>Team Name *</label><input type="text" id="rtm-team-name" placeholder="e.g. Thunder Strikers"/></div>
+      <div style="margin-bottom:.5rem;">
+        <label style="font-size:.82rem;font-weight:600;color:var(--gray-dark);display:block;margin-bottom:.4rem;">Team Members</label>
+        <div style="font-size:.76rem;color:var(--gray-mid);margin-bottom:.6rem;" id="rtm-team-size-hint"></div>
+        <div id="rtm-members-list"></div>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addTeamMemberRow()" id="rtm-add-member-btn">+ Add Team Member</button>
       </div>
     </div>
     <div id="rtm-payment-section" style="display:none;">
@@ -2438,7 +2457,10 @@ async function updateProfile() {
 
 // ── Registration modal ──
 let regTournId = null;
-function openRegModal(id, name, sport, fee, upi) {
+let _regTournIsTeam = false;
+let _regTournMinTeamSize = 1;
+let _regTournMaxTeamSize = 1;
+async function openRegModal(id, name, sport, fee, upi) {
   regTournId = id;
   document.getElementById('rtm-title').textContent = 'Register: ' + name;
   document.getElementById('rtm-sub').textContent = sport + (fee > 0 ? ' · Entry Fee: ₹' + fee : ' · Free Entry');
@@ -2449,8 +2471,51 @@ function openRegModal(id, name, sport, fee, upi) {
     document.getElementById('rtm-fee').textContent = '₹' + fee;
     document.getElementById('rtm-upi').textContent = upi || 'Contact organiser';
   } else { paySection.style.display = 'none'; }
+
+  // check if this is a team tournament
+  const { data: t } = await sb.from('tournaments').select('is_team_tournament,min_team_size,max_team_size').eq('id', id).single();
+  _regTournIsTeam = t?.is_team_tournament || false;
+  _regTournMinTeamSize = t?.min_team_size || 1;
+  _regTournMaxTeamSize = t?.max_team_size || 1;
+  const teamSection = document.getElementById('rtm-team-section');
+  const nameLabel = document.getElementById('rtm-name-label');
+  const membersList = document.getElementById('rtm-members-list');
+  membersList.innerHTML = '';
+  if (_regTournIsTeam) {
+    teamSection.style.display = 'block';
+    nameLabel.textContent = 'Team Leader Name * (You)';
+    document.getElementById('rtm-team-name').value = '';
+    document.getElementById('rtm-team-size-hint').textContent =
+      `This team needs ${_regTournMinTeamSize}–${_regTournMaxTeamSize} members total (including you as leader). Add ${_regTournMinTeamSize - 1} to ${_regTournMaxTeamSize - 1} teammates below. TR-ID is optional for teammates.`;
+    // pre-fill minimum required member rows
+    for (let i = 0; i < _regTournMinTeamSize - 1; i++) addTeamMemberRow();
+  } else {
+    teamSection.style.display = 'none';
+    nameLabel.textContent = 'Your Name *';
+  }
+
   document.getElementById('rtm-err').style.display = 'none';
   document.getElementById('reg-tourn-modal').classList.add('open');
+}
+
+function addTeamMemberRow() {
+  const list = document.getElementById('rtm-members-list');
+  const currentRows = list.querySelectorAll('.rtm-member-row').length;
+  if (currentRows >= _regTournMaxTeamSize - 1) {
+    alert(`Maximum team size is ${_regTournMaxTeamSize} (including you). Cannot add more members.`);
+    return;
+  }
+  const rowId = 'rtm-member-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+  const row = document.createElement('div');
+  row.className = 'rtm-member-row';
+  row.id = rowId;
+  row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr auto;gap:.5rem;margin-bottom:.5rem;align-items:center;';
+  row.innerHTML = `
+    <input type="text" class="rtm-member-name" placeholder="Member name *" style="padding:.55rem .75rem;border:1.5px solid rgba(0,0,0,.12);border-radius:8px;font-size:.85rem;"/>
+    <input type="text" class="rtm-member-trid" placeholder="TR-ID (optional)" style="padding:.55rem .75rem;border:1.5px solid rgba(0,0,0,.12);border-radius:8px;font-size:.85rem;"/>
+    <button type="button" onclick="document.getElementById('${rowId}').remove()" style="background:#FCEBEB;color:#A32D2D;border:none;border-radius:8px;padding:.5rem .65rem;cursor:pointer;font-size:.8rem;">✕</button>
+  `;
+  list.appendChild(row);
 }
 
 async function submitRegistration() {
@@ -2464,6 +2529,31 @@ async function submitRegistration() {
   // Input validation
   if (name.length > 100) { showErr(err, 'Name too long (max 100 chars).'); return; }
   if (parseInt(age) < 1 || parseInt(age) > 120) { showErr(err, 'Please enter a valid age.'); return; }
+
+  let teamName = null;
+  let teamMembers = null;
+  if (_regTournIsTeam) {
+    teamName = document.getElementById('rtm-team-name').value.trim();
+    if (!teamName) { showErr(err, 'Please enter a team name.'); return; }
+    const memberRows = document.querySelectorAll('#rtm-members-list .rtm-member-row');
+    const members = [];
+    for (const row of memberRows) {
+      const mName = row.querySelector('.rtm-member-name').value.trim();
+      const mTrid = row.querySelector('.rtm-member-trid').value.trim();
+      if (mName) members.push({ name: sanitizeInput(mName, 100), tr_id: sanitizeInput(mTrid, 20) || null });
+    }
+    const totalTeamSize = members.length + 1; // +1 for the leader
+    if (totalTeamSize < _regTournMinTeamSize) {
+      showErr(err, `This team needs at least ${_regTournMinTeamSize} members (including you). Please add ${_regTournMinTeamSize - 1 - members.length} more.`);
+      return;
+    }
+    if (totalTeamSize > _regTournMaxTeamSize) {
+      showErr(err, `Maximum team size is ${_regTournMaxTeamSize} members (including you).`);
+      return;
+    }
+    teamMembers = members;
+  }
+
   btn.innerHTML = '<span class="spinner"></span>Registering...'; btn.disabled = true;
 
   // anti-duplicate check
@@ -2488,7 +2578,9 @@ async function submitRegistration() {
     transaction_id: txn || null,
     payment_status: txn ? 'pending' : 'free',
     status: 'pending',
-    check_in_status: 'registered'
+    check_in_status: 'registered',
+    team_name: teamName,
+    team_members: teamMembers
   });
   if (error) {
     showErr(err, error.message.includes('unique') ? '⚠️ You are already registered for this tournament!' : error.message);
@@ -2774,6 +2866,13 @@ function updateSwissHint() {
     el.style.display = 'block';
   } else if (el) el.style.display = 'none';
 }
+function toggleCtTeamMode() {
+  const isTeam = document.getElementById('ct-team-mode')?.checked;
+  const grp = document.getElementById('ct-team-size-group');
+  const label = document.getElementById('ct-maxplayers-label');
+  if (grp) grp.style.display = isTeam ? 'block' : 'none';
+  if (label) label.textContent = isTeam ? 'Max Teams *' : 'Max Players *';
+}
 document.addEventListener('DOMContentLoaded', () => {
   updateFormatHint();
   document.getElementById('ct-format')?.addEventListener('change', updateFormatHint);
@@ -2795,17 +2894,23 @@ async function createTournament() {
   const fee = parseInt(document.getElementById('ct-fee').value) || 0;
   const upi = document.getElementById('ct-upi').value.trim();
   const desc = document.getElementById('ct-desc').value.trim();
+  const isTeam = document.getElementById('ct-team-mode')?.checked || false;
+  const minTeamSize = isTeam ? parseInt(document.getElementById('ct-min-team-size').value) : null;
+  const maxTeamSize = isTeam ? parseInt(document.getElementById('ct-max-team-size').value) : null;
   const err = document.getElementById('ct-err');
   const btn = document.getElementById('ct-btn');
   if (!name || !sport || !location || !date || !time || !maxPlayers) { showErr(err, 'Please fill all required fields.'); return; }
   if (fee > 0 && !upi) { showErr(err, 'Please enter your UPI ID for fee collection.'); return; }
+  if (isTeam && (!minTeamSize || !maxTeamSize)) { showErr(err, 'Please enter min and max players per team.'); return; }
+  if (isTeam && minTeamSize > maxTeamSize) { showErr(err, 'Min team size cannot be greater than max team size.'); return; }
   btn.innerHTML = '<span class="spinner"></span>Creating...'; btn.disabled = true;
   const publicId = 'T' + Math.floor(10000000 + Math.random() * 90000000).toString();
   const { error } = await sb.from('tournaments').insert({
     organiser_id: currentUser.id, name, sport, location, date, time,
     max_players: parseInt(maxPlayers), entry_fee: fee,
     upi_id: upi || null, description: desc || null,
-    public_id: publicId, format: format
+    public_id: publicId, format: format,
+    is_team_tournament: isTeam, min_team_size: minTeamSize, max_team_size: maxTeamSize
   });
   if (error) { showErr(err, error.message); btn.innerHTML = '🚀 Create Tournament'; btn.disabled = false; return; }
   btn.innerHTML = '🚀 Create Tournament'; btn.disabled = false;
@@ -2814,6 +2919,10 @@ async function createTournament() {
   alert('🎉 Tournament created! Format: ' + (fmtNames[format] || format));
   ['ct-name','ct-location','ct-upi','ct-desc'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('ct-sport').value = '';
+  document.getElementById('ct-team-mode').checked = false;
+  document.getElementById('ct-min-team-size').value = '';
+  document.getElementById('ct-max-team-size').value = '';
+  toggleCtTeamMode();
   oTab(document.querySelector('#organiser-dash .sidebar li:nth-child(2) a'), 'o-tournaments');
 }
 
@@ -5165,6 +5274,7 @@ function renderOrgRegs(regs, isFullSet = true) {
   const tbody = document.getElementById('otd-regs-body');
   tbody.innerHTML = regs.map(r => `<tr>
     <td><strong>${r.player_name}</strong></td>
+    <td>${r.team_name ? `<span title="${(r.team_members||[]).map(m=>m.name+(m.tr_id?' ('+m.tr_id+')':'')).join(', ')}" style="cursor:help;font-weight:600;color:var(--teal);">${esc(r.team_name)} <span style="font-size:.7rem;color:var(--gray-mid);">(${(r.team_members||[]).length+1})</span></span>` : '—'}</td>
     <td>${r.age||'—'}</td>
     <td>${r.gender||'—'}</td>
     <td><span class="badge ${r.payment_status==='verified'?'win':r.payment_status==='free'?'purple':'pending'}">${r.payment_status}</span></td>
