@@ -2489,11 +2489,14 @@ async function openRegModal(id, name, sport, fee, upi) {
     document.getElementById('rtm-upi').textContent = upi || 'Contact organiser';
   } else { paySection.style.display = 'none'; }
 
-  // check if this is a team tournament
-  const { data: t } = await sb.from('tournaments').select('is_team_tournament,min_team_size,max_team_size').eq('id', id).single();
+  // check if this is a team tournament — use public_tournaments (readable by any player), not
+  // 'tournaments' directly, since RLS on the raw table only allows the owning organiser to read it
+  const { data: t } = await sb.from('public_tournaments').select('is_team_tournament,min_team_size,max_team_size,upi_id').eq('id', id).single();
   _regTournIsTeam = t?.is_team_tournament || false;
   _regTournMinTeamSize = t?.min_team_size || 1;
   _regTournMaxTeamSize = t?.max_team_size || 1;
+  // prefer the freshly-fetched UPI id (covers callers that didn't pass it through)
+  if (t?.upi_id) document.getElementById('rtm-upi').textContent = t.upi_id;
   const teamSection = document.getElementById('rtm-team-section');
   const nameLabel = document.getElementById('rtm-name-label');
   const membersList = document.getElementById('rtm-members-list');
