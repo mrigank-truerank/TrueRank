@@ -6715,6 +6715,13 @@ const _origLoadNotif = loadNotifications;
 
 
 // ── Security: HTML escape to prevent XSS ──
+// ── Show inline form error (was previously undefined — this caused error handling to silently crash) ──
+function showErr(el, msg) {
+  if (!el) { console.error(msg); return; }
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
 function esc(str) {
   if (!str) return '';
   return String(str)
@@ -7579,4 +7586,4 @@ document.getElementById('reg-pass')?.addEventListener('keydown', e => { if (e.ke
   </ul>
 </div>
 </body>
-</html>d
+</html>
