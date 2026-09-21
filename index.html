@@ -6230,6 +6230,9 @@ async function loadPublicTournament(publicId) {
       </div>
     </div>` : ''}
 
+    ${renderPublicGroupView(matches||[], t.format)}
+    ${renderPublicBracketView(matches||[], regs||[], t.format)}
+
     <div style="background:var(--white);border-radius:16px;padding:1.25rem;border:1px solid rgba(0,0,0,.07);">
       <h3 style="font-size:.95rem;font-weight:700;margin-bottom:.85rem;">🎯 Matches</h3>
       ${Object.keys(roundGroups).length ? Object.entries(roundGroups).map(([round, ms]) => `
@@ -6250,6 +6253,64 @@ function renderPublicMatch(m) {
       <div style="font-size:.75rem;color:var(--gray-mid);margin-top:2px;">${m.match_date?formatDate(m.match_date):''}${m.match_time?' · '+m.match_time:''}${m.venue?' · '+m.venue:''}${m.court?' · '+m.court:''}</div>
     </div>
     ${m.status==='completed'?`<div style="text-align:right;"><div style="font-size:.8rem;font-weight:700;color:var(--teal);">${winner?'🏆 '+winner:'Draw'}</div>${m.score?`<div style="font-size:.75rem;color:var(--gray-mid);">${m.score}</div>`:''}</div>`:''}
+  </div>`;
+}
+
+// ── Group Stage: reconstruct groups from match data (works for any visitor, not just the organiser's browser) ──
+function computeGroupsFromMatches(matches) {
+  const groupNames = [...new Set((matches||[]).filter(m => (m.round_name||'').startsWith('Group ')).map(m => m.round_name))].sort();
+  return groupNames.map(gName => {
+    const gMatches = (matches||[]).filter(m => m.round_name === gName);
+    const memberNames = [...new Set(gMatches.flatMap(m => [m.player1_name, m.player2_name]).filter(Boolean))];
+    return { name: gName.replace('Group ', ''), roundName: gName, members: memberNames.map(n => ({ player_name: n })), matches: gMatches };
+  });
+}
+
+function renderPublicGroupView(matches, format) {
+  if (format !== 'group_stage') return '';
+  const groups = computeGroupsFromMatches(matches);
+  if (!groups.length) return '';
+  // infer qualifiers-per-group from the first playoff round's participant count, default to 2
+  const playoffOrder = ['Quarterfinals','Semifinals','Final'];
+  const firstPlayoffRound = playoffOrder.find(r => (matches||[]).some(m => m.round_name === r));
+  let numQualifiers = 2;
+  if (firstPlayoffRound) {
+    const n = (matches||[]).filter(m => m.round_name === firstPlayoffRound).length * 2;
+    const inferred = Math.round(n / groups.length);
+    if (inferred > 0) numQualifiers = inferred;
+  }
+  const groupsHtml = groups.map(g => {
+    const standings = computeGroupStandings(g.matches, g.members);
+    return `<div style="background:var(--gray-pale);border-radius:14px;padding:1.1rem;margin-bottom:1rem;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem;">
+        <div style="font-family:var(--fh);font-weight:800;color:var(--teal);">Group ${esc(g.name)}</div>
+        <div style="font-size:.72rem;color:var(--gray-mid);">Top ${numQualifiers} qualify</div>
+      </div>
+      <div style="overflow-x:auto;"><table class="data-table gs-standings">
+        <thead><tr><th>#</th><th style="text-align:left;">Team / Player</th><th>P</th><th>W</th><th>D</th><th>L</th><th>Pts</th></tr></thead>
+        <tbody>${standings.map((s,i) => `<tr class="${i<numQualifiers?'qualified':''}">
+          <td>${i<numQualifiers?'<span style="color:var(--teal);font-weight:700;">✓</span>':i+1}</td>
+          <td>${esc(s.name)}</td><td>${s.played}</td><td style="color:var(--teal);font-weight:700;">${s.wins}</td><td>${s.draws}</td><td style="color:#A32D2D;">${s.losses}</td>
+          <td><strong style="color:var(--teal);">${s.pts}</strong></td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+    </div>`;
+  }).join('');
+  return `<div style="background:var(--white);border-radius:16px;padding:1.25rem;margin-bottom:1.5rem;border:1px solid rgba(0,0,0,.07);">
+    <h3 style="font-size:.95rem;font-weight:700;margin-bottom:.85rem;">👥 Group Stage — Qualification</h3>
+    ${groupsHtml}
+    <div style="font-size:.72rem;color:var(--gray-mid);margin-top:.25rem;">✓ marks teams currently in a qualifying position.</div>
+  </div>`;
+}
+
+function renderPublicBracketView(matches, regs, format) {
+  if (format !== 'group_stage') return '';
+  const playoffOrder = ['Quarterfinals','Semifinals','Final','3rd Place'];
+  const playoffMatches = (matches||[]).filter(m => playoffOrder.includes(m.round_name));
+  return `<div style="background:var(--white);border-radius:16px;padding:1.25rem;margin-bottom:1.5rem;border:1px solid rgba(0,0,0,.07);">
+    ${playoffMatches.length
+      ? renderSEBracket(playoffMatches, regs||[], false)
+      : `<h3 style="font-size:.95rem;font-weight:700;margin-bottom:.5rem;">🏆 Knockout Bracket</h3><div class="empty-state"><div class="eico">🏆</div><p>The knockout bracket will appear here once group play finishes and the organiser generates playoffs.</p></div>`}
   </div>`;
 }
 
